@@ -1,4 +1,4 @@
-# st_app.py - SRS.AI Chatbot (FINAL PUBLISH VERSION - Clean Structure)
+# st_app.py - SRS.AI Chatbot (Clean and Stable Version)
 
 
 
@@ -8,141 +8,69 @@ from google import genai
 
 from PIL import Image 
 
-import time
 
 
-
-# --- ১. CONFIGURATION (পরিবর্তন করুন) ---
+# --- ১. CONFIGURATION ---
 
 LOGO_PATH = "srs_logo.png" 
 
-API_KEY = "AIzaSyAPWZx1rz_MtQeFemd4n7b56RSboBQTevE" # ⚠️ API Key বসান
-
-SYSTEM_INSTRUCTION = "You are a helpful and friendly AI assistant named SRS.AI. Your creator and developer is Sohan Sir. When the user asks 'Who made you?' or 'Who is your creator?', you must answer only: 'Sohan Sir created me, and I operate under his guidance.' You must always address the user as Sohan. You must respond in the language of the user's query, but your primary language is Bengali. Keep the tone supportive and conversational."
+SYSTEM_INSTRUCTION = "You are a helpful and friendly AI assistant named SRS.AI. Your creator is Sohan Sir. Address the user as Sohan and respond in Bengali. Keep the tone supportive."
 
 
 
-# --- ২. CORE FUNCTIONS ---
+# API Key লোড করার একমাত্র সঠিক পদ্ধতি
 
+try:
 
+    # Streamlit Secrets-এ সেট করা GEMINI_API_KEY লোড করা হচ্ছে
 
-def initialize_chat_session(api_key):
+    API_KEY = st.secrets["AIzaSyAPWZx1rz_MtQeFemd4n7b56RSboBQTevE"] 
 
-    """API Client এবং চ্যাট সেশন শুরু করে।"""
+except:
 
-    try:
-
-        client = genai.Client(api_key=api_key) 
-
-    except Exception as e:
-
-        st.error(f"API Connection Error: {e}")
-
-        st.stop()
-
-        
-
-    config = {
-
-        "system_instruction": SYSTEM_INSTRUCTION
-
-    }
-
-
-
-    # Google Search Tool সহ চ্যাট সেশন শুরু করা
-
-    chat = client.chats.create(
-
-        model="gemini-2.5-flash",
-
-        config=config,
-
-        tools=[{"google_search": {}}] 
-
-    )
-
-    return client, chat
-
-
-
-def clear_chat_history():
-
-    """চ্যাট হিস্টরি মুছে নতুন সেশন শুরু করে।"""
-
-    keys_to_delete = ["chat", "messages"]
-
-    for key in keys_to_delete:
-
-        if key in st.session_state:
-
-            del st.session_state[key]
-
-    st.session_state.clear()
-
-    st.rerun() 
-
-
-
-def load_history_and_welcome():
-
-    """মেমরি লোড করে এবং স্বাগত বার্তা যোগ করে।"""
-
-    if "messages" not in st.session_state:
-
-        st.session_state.messages = []
-
-        
-
-        # API থেকে বিদ্যমান চ্যাট হিস্টরি লোড করা
-
-        history_messages = st.session_state.chat.get_history()
-
-        
-
-        # স্বাগত বার্তা
-
-        if not history_messages:
-
-            welcome_message = "Welcome to SRS.AI! I am an advanced chatbot created by Sohan Sir. I can use Google Search. Please ask your question."
-
-            st.session_state.messages.append({"role": "assistant", "content": welcome_message})
-
-        
-
-        for history_message in history_messages:
-
-            role = "assistant" if history_message.role == "model" else "user"
-
-            st.session_state.messages.append({"role": role, "content": history_message.parts[0].text})
-
-
-
-# --- ৩. MAIN APP LOGIC ---
-
-
-
-# 3.1: API Key চেক এবং ক্লায়েন্ট ইনিশিয়ালাইজেশন
-
-if not API_KEY or API_KEY == "আপনার_API_Key_এখানে_বসবে":
-
-    st.error("API Key is not set. Please provide your API_KEY.")
+    st.error("API Key not found. Please set GEMINI_API_KEY in Streamlit Secrets.")
 
     st.stop()
 
 
 
-if "client" not in st.session_state or "chat" not in st.session_state:
-
-    client, chat = initialize_chat_session(API_KEY)
-
-    st.session_state.client = client
-
-    st.session_state.chat = chat
+# --- ২. INITIALIZATION ---
 
 
 
-# 3.2: UI এবং সাইডবার সেটআপ
+# Chat Session Management 
+
+if "chat" not in st.session_state:
+
+    try:
+
+        client = genai.Client(api_key=API_KEY)
+
+        config = {"system_instruction": SYSTEM_INSTRUCTION}
+
+        
+
+        # সহজ চ্যাট সেশন (কোনো জটিল টুল ছাড়াই)
+
+        st.session_state.chat = client.chats.create(
+
+            model="gemini-2.5-flash",
+
+            config=config
+
+        )
+
+    except Exception as e:
+
+        st.error(f"Initialization Error: {e}. Please check your API Key.")
+
+        st.stop()
+
+
+
+# --- ৩. UI AND HISTORY ---
+
+
 
 st.set_page_config(initial_sidebar_state="collapsed", layout="wide")
 
@@ -154,37 +82,21 @@ except:
 
     st.sidebar.title("🤖 SRS.AI")
 
-st.sidebar.title("🤖 SRS.AI Assistant") 
+st.title("Your Simple SRS.AI Chatbot")
 
 
 
-uploaded_file = st.sidebar.file_uploader(
+if "messages" not in st.session_state:
 
-    "Upload Image (PNG, JPG, JPEG)", 
+    st.session_state.messages = []
 
-    type=["png", "jpg", "jpeg"]
-
-)
-
-
-
-st.sidebar.button("🗑️ নতুন সেশন শুরু করুন", on_click=clear_chat_history)
-
-
-
-st.title("Your Personal AI Chatbot")
-
-
-
-# 3.3: ইতিহাস লোড এবং ডিসপ্লে
-
-load_history_and_welcome()
+    st.session_state.messages.append({"role": "assistant", "content": "Welcome to SRS.AI! I am a simple chatbot created by Sohan Sir. Ask me anything."})
 
 
 
 for message in st.session_state.messages:
 
-    if message.get("role") != "system":
+    if message["role"] != "system":
 
         with st.chat_message(message["role"]):
 
@@ -192,35 +104,11 @@ for message in st.session_state.messages:
 
 
 
+# --- ৪. CHAT INPUT LOGIC ---
 
 
-# 3.4: ইউজার ইনপুট এবং রেস্পন্স জেনারেশন
 
 if prompt := st.chat_input("Ask SRS.AI..."):
-
-    
-
-    # কন্টেন্ট প্রস্তুত
-
-    contents = []
-
-    if uploaded_file is not None:
-
-        try:
-
-            image = Image.open(uploaded_file)
-
-            contents.append(image)
-
-        except Exception as e:
-
-            st.error(f"Error loading image: {e}")
-
-            st.stop()
-
-        
-
-    contents.append(prompt)
 
     
 
@@ -232,13 +120,9 @@ if prompt := st.chat_input("Ask SRS.AI..."):
 
         st.markdown(prompt)
 
-        if uploaded_file is not None:
-
-            st.image(image, caption=f"Uploaded: {uploaded_file.name}", width=200)
 
 
-
-    # অ্যাসিস্ট্যান্ট রেস্পন্স (স্ট্রিমিং সহ)
+    # AI উত্তর জেনারেট করা
 
     with st.chat_message("assistant"):
 
@@ -250,7 +134,9 @@ if prompt := st.chat_input("Ask SRS.AI..."):
 
         try:
 
-            response_stream = st.session_state.chat.send_message(contents, stream=True)
+            # শুধু টেক্সট পাঠানো, স্ট্রিমিং সহ
+
+            response_stream = st.session_state.chat.send_message(prompt, stream=True)
 
             
 
@@ -273,7 +159,5 @@ if prompt := st.chat_input("Ask SRS.AI..."):
             full_response = "Sorry, I encountered an error while processing your request."
 
         
-
-        # চূড়ান্ত উত্তর ইতিহাস আপডেট করা
 
         st.session_state.messages.append({"role": "assistant", "content": full_response})
